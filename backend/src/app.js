@@ -30,8 +30,13 @@ const allowedOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
 app.use(
   cors({
     origin(origin, callback) {
-      // allow non-browser tools (curl/Postman) with no origin header
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        allowedOrigins.includes('*') ||
+        origin.startsWith('http://localhost') ||
+        origin.startsWith('http://127.0.0.1')
+      ) {
         return callback(null, true);
       }
       return callback(new Error('Not allowed by CORS'));
