@@ -20,13 +20,16 @@ export const register = asyncHandler(async (req, res) => {
     throw new Error('An account with this email already exists');
   }
 
+  const validBloodGroup =
+    role === 'patient' && bloodGroup && bloodGroup.trim() !== '' ? bloodGroup.trim() : null;
+
   const user = await User.create({
     name,
     email,
     password,
     role: role === 'hospital' ? 'hospital' : 'patient',
-    phone,
-    bloodGroup: role === 'patient' ? bloodGroup : null,
+    phone: phone || undefined,
+    bloodGroup: validBloodGroup,
   });
 
   // If registering as a hospital, create a linked Hospital record so the
