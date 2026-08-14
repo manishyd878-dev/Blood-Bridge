@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const BASE_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
 
 function getAuthHeaders() {
   const token = localStorage.getItem('bloodbridge_token');
@@ -13,14 +13,21 @@ async function request(endpoint, options = {}) {
     ...options.headers,
   };
 
-  const response = await fetch(url, { ...options, headers });
-  const data = await response.json().catch(() => ({}));
+  try {
+    const response = await fetch(url, { ...options, headers });
+    const data = await response.json().catch(() => ({}));
 
-  if (!response.ok) {
-    throw new Error(data.message || 'An error occurred');
+    if (!response.ok) {
+      throw new Error(data.message || 'An error occurred during request');
+    }
+
+    return data;
+  } catch (err) {
+    if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
+      throw new Error('Unable to connect to backend server. Please ensure the backend is running on port 5000.');
+    }
+    throw err;
   }
-
-  return data;
 }
 
 export const api = {

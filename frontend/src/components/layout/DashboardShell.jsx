@@ -1,10 +1,18 @@
 import { useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Droplet, Menu, X } from 'lucide-react';
+import { Droplet, Menu, X, LogOut } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext.jsx';
 
 export default function DashboardShell({ title, subtitle, navItems, accent = 'patient', children, topRight }) {
   const [open, setOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <div className="min-h-screen bg-paper-dim">
@@ -58,9 +66,31 @@ export default function DashboardShell({ title, subtitle, navItems, accent = 'pa
             ))}
           </nav>
 
-          <div className="mt-10 rounded-2xl bg-blood-50 p-4">
-            <p className="text-xs font-semibold text-blood-700">Emergency helpline</p>
-            <p className="mt-1 font-mono text-sm font-semibold text-blood-800">1800-BLOOD-01</p>
+          <div className="mt-8 border-t border-ink/8 pt-4">
+            {user && (
+              <div className="mb-3 flex items-center justify-between rounded-2xl border border-ink/8 bg-mist/50 p-3">
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blood-600 font-display text-sm font-bold text-white">
+                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-semibold text-ink">{user.name}</p>
+                    <p className="truncate text-[10px] text-ink-soft">{user.email}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  title="Logout"
+                  className="rounded-xl p-2 text-ink-soft hover:bg-red-50 hover:text-red-600 transition-colors"
+                >
+                  <LogOut size={16} />
+                </button>
+              </div>
+            )}
+            <div className="rounded-2xl bg-blood-50 p-4">
+              <p className="text-xs font-semibold text-blood-700">Emergency helpline</p>
+              <p className="mt-1 font-mono text-sm font-semibold text-blood-800">1800-BLOOD-01</p>
+            </div>
           </div>
         </motion.aside>
 

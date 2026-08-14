@@ -3,6 +3,7 @@ import { LayoutGrid, Search, History, User, Settings, Bell } from 'lucide-react'
 import DashboardShell from '../components/layout/DashboardShell.jsx';
 import HospitalCard from '../components/ui/HospitalCard.jsx';
 import { bloodGroups, hospitals } from '../lib/data.js';
+import { useAuth } from '../context/AuthContext.jsx';
 
 const navItems = [
   { to: '/dashboard', label: 'Overview', icon: LayoutGrid, end: true },
@@ -13,7 +14,10 @@ const navItems = [
 ];
 
 export default function PatientDashboard() {
-  const [group, setGroup] = useState('B+');
+  const { user } = useAuth();
+  const displayName = user?.name ? user.name.split(' ')[0] : 'Patient';
+  const defaultGroup = user?.bloodGroup || 'B+';
+  const [group, setGroup] = useState(defaultGroup);
   const [query, setQuery] = useState('');
 
   const results = useMemo(
@@ -26,14 +30,21 @@ export default function PatientDashboard() {
 
   return (
     <DashboardShell
-      title="Welcome back, Ritika"
+      title={`Welcome back, ${displayName}`}
       subtitle="Patient portal"
       navItems={navItems}
       topRight={
-        <button className="relative flex h-11 w-11 items-center justify-center rounded-full border border-ink/10 bg-white">
-          <Bell size={18} className="text-ink-soft" />
-          <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-blood-600" />
-        </button>
+        <div className="flex items-center gap-3">
+          {user?.bloodGroup && (
+            <span className="hidden sm:inline-block rounded-full bg-blood-100 px-3 py-1 text-xs font-semibold text-blood-700">
+              Blood Group: {user.bloodGroup}
+            </span>
+          )}
+          <button className="relative flex h-11 w-11 items-center justify-center rounded-full border border-ink/10 bg-white">
+            <Bell size={18} className="text-ink-soft" />
+            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-blood-600" />
+          </button>
+        </div>
       }
     >
       <div className="glass rounded-3xl p-5 sm:p-6">

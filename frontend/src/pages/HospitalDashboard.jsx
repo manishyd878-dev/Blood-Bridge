@@ -7,6 +7,7 @@ import DashboardShell from '../components/layout/DashboardShell.jsx';
 import BarChart from '../components/ui/BarChart.jsx';
 import StatusPill, { stockStatus } from '../components/ui/StatusPill.jsx';
 import { bloodGroups, notifications } from '../lib/data.js';
+import { useAuth } from '../context/AuthContext.jsx';
 
 const navItems = [
   { to: '/hospital-dashboard', label: 'Overview', icon: LayoutGrid, end: true },
@@ -20,6 +21,8 @@ const initialStock = { 'A+': 12, 'A-': 2, 'B+': 20, 'B-': 0, 'AB+': 5, 'AB-': 1,
 const toneLabel = { green: 'Healthy', yellow: 'Low', red: 'Empty' };
 
 export default function HospitalDashboard() {
+  const { user } = useAuth();
+  const hospitalTitle = user?.hospital?.name || user?.name || 'Sanjeevani General Hospital';
   const [stock, setStock] = useState(initialStock);
 
   const totalUnits = useMemo(() => Object.values(stock).reduce((a, b) => a + b, 0), [stock]);
@@ -32,7 +35,7 @@ export default function HospitalDashboard() {
 
   return (
     <DashboardShell
-      title="Sanjeevani General Hospital"
+      title={hospitalTitle}
       subtitle="Hospital dashboard"
       navItems={navItems}
       topRight={
