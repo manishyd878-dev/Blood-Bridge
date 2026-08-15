@@ -32,9 +32,6 @@ export const getHospitals = asyncHandler(async (req, res) => {
   if (verifiedOnly === 'true') {
     filter.verified = true;
   }
-  if (bloodGroup && BLOOD_GROUPS.includes(bloodGroup)) {
-    filter[`stock.${bloodGroup}`] = { $gt: 0 };
-  }
 
   let hospitals = await Hospital.find(filter).lean({ virtuals: true });
 

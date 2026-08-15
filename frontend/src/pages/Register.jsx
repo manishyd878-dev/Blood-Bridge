@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Droplet, Mail, User, Lock, Building2 } from 'lucide-react';
+import { Droplet, Mail, User, Lock, Building2, Phone, MapPin, Navigation } from 'lucide-react';
 import Button from '../components/ui/Button.jsx';
 import DropletField from '../components/ui/DropletField.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -11,6 +11,9 @@ export default function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [city, setCity] = useState('');
+  const [address, setAddress] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
@@ -21,7 +24,14 @@ export default function Register() {
     setError('');
     setLoading(true);
     try {
-      const payload = { name, email, password, role };
+      const payload = {
+        name,
+        email,
+        password,
+        role,
+        phone,
+        hospitalDetails: role === 'hospital' ? { name, address, city, phone } : undefined,
+      };
       const res = await register(payload);
       const userRole = res.user?.role || role;
       navigate(userRole === 'hospital' ? '/hospital-dashboard' : '/dashboard');
@@ -100,6 +110,44 @@ export default function Register() {
               className="w-full rounded-xl border border-ink/10 bg-white py-3 pl-11 pr-4 text-sm focus-ring"
             />
           </div>
+
+          <div className="relative">
+            <Phone size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-soft" />
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Contact phone number"
+              className="w-full rounded-xl border border-ink/10 bg-white py-3 pl-11 pr-4 text-sm focus-ring"
+            />
+          </div>
+
+          {role === 'hospital' && (
+            <>
+              <div className="relative">
+                <Navigation size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-soft" />
+                <input
+                  required
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="City / Region"
+                  className="w-full rounded-xl border border-ink/10 bg-white py-3 pl-11 pr-4 text-sm focus-ring"
+                />
+              </div>
+
+              <div className="relative">
+                <MapPin size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-soft" />
+                <input
+                  required
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Hospital full street address"
+                  className="w-full rounded-xl border border-ink/10 bg-white py-3 pl-11 pr-4 text-sm focus-ring"
+                />
+              </div>
+            </>
+          )}
+
           <div className="relative">
             <Lock size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-soft" />
             <input

@@ -1,13 +1,23 @@
 import { useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Droplet, Menu, X, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 
-export default function DashboardShell({ title, subtitle, navItems, accent = 'patient', children, topRight }) {
+export default function DashboardShell({
+  title,
+  subtitle,
+  navItems = [],
+  activeTab,
+  onTabChange,
+  accent = 'patient',
+  children,
+  topRight,
+}) {
   const [open, setOpen] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     logout();
@@ -46,24 +56,42 @@ export default function DashboardShell({ title, subtitle, navItems, accent = 'pa
           </Link>
 
           <nav className="mt-10 space-y-1">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors ${
+            {navItems.map((item) => {
+              const itemId = item.id || item.label.toLowerCase();
+              const isTabMode = Boolean(activeTab !== undefined || onTabChange);
+              const isActive = isTabMode
+                ? activeTab === itemId
+                : Boolean(item.to && location.pathname === item.to);
+
+              const handleClick = (e) => {
+                setOpen(false);
+                if (item.onClick) {
+                  item.onClick(e);
+                }
+                if (onTabChange) {
+                  onTabChange(itemId);
+                }
+                if (item.to && item.to !== location.pathname) {
+                  navigate(item.to);
+                }
+              };
+
+              return (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={handleClick}
+                  className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all ${
                     isActive
                       ? 'bg-blood-600 text-white shadow-[0_8px_20px_-8px_rgba(220,38,38,0.5)]'
-                      : 'text-ink-soft hover:bg-mist'
-                  }`
-                }
-              >
-                <item.icon size={17} />
-                {item.label}
-              </NavLink>
-            ))}
+                      : 'text-ink-soft hover:bg-mist hover:text-ink'
+                  }`}
+                >
+                  <item.icon size={17} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
           </nav>
 
           <div className="mt-8 border-t border-ink/8 pt-4">

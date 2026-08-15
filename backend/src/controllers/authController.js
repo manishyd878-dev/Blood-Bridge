@@ -39,8 +39,8 @@ export const register = asyncHandler(async (req, res) => {
       name: hospitalDetails?.name || name,
       owner: user._id,
       address: hospitalDetails?.address || 'Address not yet provided',
-      city: hospitalDetails?.city,
-      phone: phone || hospitalDetails?.phone,
+      city: hospitalDetails?.city || '',
+      phone: phone || hospitalDetails?.phone || '',
       email,
       verified: false,
     });
@@ -48,10 +48,12 @@ export const register = asyncHandler(async (req, res) => {
     await user.save();
   }
 
+  const populatedUser = await User.findById(user._id).populate('hospital');
+
   res.status(201).json({
     success: true,
     token: generateToken(user._id),
-    user: user.toSafeObject(),
+    user: populatedUser ? populatedUser.toSafeObject() : user.toSafeObject(),
   });
 });
 
@@ -66,7 +68,7 @@ export const login = asyncHandler(async (req, res) => {
     throw new Error('Email and password are required');
   }
 
-  const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+  const user = await User.findOne({ email: email.toLowerCase() }).select('+password').populate('hospital');
   if (!user || !(await user.comparePassword(password))) {
     res.status(401);
     throw new Error('Invalid email or password');
