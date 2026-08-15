@@ -1,12 +1,12 @@
 import { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Home as HomeIcon, LayoutGrid, Boxes, Bell, User, Settings, Plus, Minus, Trash2, AlertTriangle, Droplets, Users, Activity, Edit3, Save, CheckCircle2, Building2, MapPin, Phone, Mail, Navigation, Lock, ShieldAlert
+  Home as HomeIcon, LayoutGrid, Boxes, Bell, User, Settings, Plus, Minus, Trash2, AlertTriangle, Droplets, Users, Activity, Edit3, Save, CheckCircle2, Building2, MapPin, Phone, Mail, Navigation, Lock, ShieldAlert, Check, X
 } from 'lucide-react';
 import DashboardShell from '../components/layout/DashboardShell.jsx';
 import BarChart from '../components/ui/BarChart.jsx';
 import StatusPill, { stockStatus } from '../components/ui/StatusPill.jsx';
-import { bloodGroups, notifications as mockNotifications } from '../lib/data.js';
+import { bloodGroups } from '../lib/data.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../lib/api.js';
 
@@ -45,7 +45,11 @@ export default function HospitalDashboard() {
 
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
-  const [notificationsList, setNotificationsList] = useState(mockNotifications);
+
+  // Real backend notifications & patient requests
+  const [notificationsList, setNotificationsList] = useState([]);
+  const [hospitalRequests, setHospitalRequests] = useState([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(true);
 
   // Settings state
   const [settingsMsg, setSettingsMsg] = useState('');
@@ -74,6 +78,31 @@ export default function HospitalDashboard() {
         .catch((err) => console.error('Failed to load hospital details:', err));
     }
   }, [hospitalId]);
+
+  // Fetch real notifications and patient requests from MongoDB
+  const fetchLiveBackendData = () => {
+    setLoadingNotifications(true);
+
+    Promise.all([
+      api.getNotifications().catch(() => ({ notifications: [] })),
+      api.getHospitalRequests().catch(() => ({ requests: [] })),
+    ])
+      .then(([notifRes, reqRes]) => {
+        if (notifRes.notifications) {
+          setNotificationsList(notifRes.notifications);
+        }
+        if (reqRes.requests) {
+          setHospitalRequests(reqRes.requests);
+        }
+      })
+      .finally(() => {
+        setLoadingNotifications(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchLiveBackendData();
+  }, []);
 
   const handleCaptureGps = () => {
     if (!navigator.geolocation) return;
@@ -112,9 +141,25 @@ export default function HospitalDashboard() {
           mode: 'set',
           changes: { [g]: validQty },
         });
+        fetchLiveBackendData();
       } catch (err) {
         console.error('Failed to persist stock update:', err);
       }
+    }
+  };
+
+  // Handle request status update (accept / reject / fulfill)
+  const handleUpdateStatus = async (requestId, status) => {
+    try {
+      await api.updateRequestStatus(requestId, status);
+      fetchLiveBackendData();
+      if (hospitalId) {
+        api.getHospital(hospitalId).then((res) => {
+          if (res.hospital?.stock) setStock(res.hospital.stock);
+        });
+      }
+    } catch (err) {
+      console.error('Failed to update request status:', err);
     }
   };
 
@@ -200,8 +245,8 @@ export default function HospitalDashboard() {
             {[
               { label: 'Total units', value: totalUnits, icon: Droplets },
               { label: 'Blood groups low', value: lowStockGroups.length, icon: AlertTriangle },
-              { label: 'Requests today', value: 14, icon: Users },
-              { label: 'Response rate', value: '96%', icon: Activity },
+              { label: 'Incoming Requests', value: hospitalRequests.length, icon: Users },
+              { label: 'System status', value: 'Live', icon: Activity },
             ].map((s) => (
               <div key={s.label} className="rounded-2xl border border-ink/8 bg-white p-4">
                 <s.icon size={16} className="text-blood-600" />
@@ -221,25 +266,32 @@ export default function HospitalDashboard() {
 
             <div className="rounded-3xl border border-ink/8 bg-white p-6">
               <div className="flex items-center justify-between">
-                <h2 className="font-display text-lg font-medium text-ink">Recent Notifications</h2>
+                <h2 className="font-display text-lg font-medium text-ink">Live Notifications</h2>
                 <button onClick={() => setActiveTab('notifications')} className="text-xs font-semibold text-blood-600 hover:underline">
                   View all
                 </button>
               </div>
+
               <div className="mt-4 space-y-3">
-                {notificationsList.slice(0, 3).map((n) => (
-                  <div key={n.id} className="flex items-start gap-3 rounded-2xl bg-mist/60 p-3">
+                {notificationsList.slice(0, 4).map((n) => (
+                  <div key={n._id || n.id} className="flex items-start gap-3 rounded-2xl bg-mist/60 p-3">
                     <span
                       className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
-                        n.tone === 'caution' ? 'bg-amber-500' : n.tone === 'success' ? 'bg-emerald-500' : 'bg-blood-500'
+                        n.tone === 'danger' || n.tone === 'caution' ? 'bg-amber-500' : n.tone === 'success' ? 'bg-emerald-500' : 'bg-blood-500'
                       }`}
                     />
                     <div>
                       <p className="text-sm text-ink">{n.text}</p>
-                      <p className="mt-0.5 text-xs text-ink-soft">{n.time}</p>
+                      <p className="mt-0.5 text-xs text-ink-soft">
+                        {n.createdAt ? new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}
+                      </p>
                     </div>
                   </div>
                 ))}
+
+                {notificationsList.length === 0 && !loadingNotifications && (
+                  <p className="py-6 text-center text-xs text-ink-soft">No recent notifications.</p>
+                )}
               </div>
             </div>
           </div>
@@ -281,7 +333,7 @@ export default function HospitalDashboard() {
           </div>
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {bloodGroups.map((g, i) => {
+            {bloodGroups.map((g) => {
               const qty = stock[g] || 0;
               const tone = stockStatus(qty);
               return (
@@ -367,45 +419,122 @@ export default function HospitalDashboard() {
         </motion.div>
       )}
 
-      {/* Notifications Tab Content */}
+      {/* Notifications & Patient Requests Tab Content */}
       {activeTab === 'notifications' && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="font-display text-2xl font-medium text-ink">System & Stock Notifications</h2>
-              <p className="text-xs text-ink-soft">Real-time alerts for low stock levels, patient requests, and audit logs.</p>
+              <h2 className="font-display text-2xl font-medium text-ink">System Notifications & Patient Requests</h2>
+              <p className="text-xs text-ink-soft">Real-time requests submitted by patients to this hospital.</p>
             </div>
             <button
-              onClick={() => setNotificationsList([])}
+              onClick={fetchLiveBackendData}
               className="rounded-full border border-ink/10 bg-white px-4 py-2 text-xs font-semibold text-ink-soft hover:bg-mist hover:text-ink"
             >
-              Clear All
+              Refresh Feed
             </button>
           </div>
 
-          <div className="space-y-3">
-            {notificationsList.map((n) => (
-              <div key={n.id} className="flex items-start justify-between rounded-2xl border border-ink/8 bg-white p-5 shadow-sm">
-                <div className="flex items-start gap-4">
-                  <span
-                    className={`mt-1.5 h-3 w-3 shrink-0 rounded-full ${
-                      n.tone === 'caution' ? 'bg-amber-500' : n.tone === 'success' ? 'bg-emerald-500' : 'bg-blood-500'
-                    }`}
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-ink">{n.text}</p>
-                    <p className="mt-1 text-xs text-ink-soft">{n.time}</p>
-                  </div>
-                </div>
-                <span className="rounded-full bg-mist px-3 py-1 text-[11px] font-semibold text-ink-soft capitalize">
-                  {n.tone}
-                </span>
+          {/* Incoming Patient Requests Section */}
+          <div className="mb-8">
+            <h3 className="font-display text-lg font-medium text-ink mb-4">Patient Blood Requests</h3>
+            {hospitalRequests.length === 0 ? (
+              <div className="py-8 text-center text-xs text-ink-soft bg-white rounded-3xl border border-ink/8">
+                No patient requests received yet.
               </div>
-            ))}
+            ) : (
+              <div className="space-y-4">
+                {hospitalRequests.map((req) => (
+                  <div key={req._id || req.id} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-3xl border border-ink/8 bg-white p-6 shadow-sm gap-4">
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-xs font-bold text-blood-700 bg-blood-50 px-2.5 py-1 rounded-full border border-blood-200">
+                          REQ-{(req._id || req.id || '').slice(-4).toUpperCase()}
+                        </span>
+                        <h4 className="font-display text-base font-bold text-ink">
+                          {req.patient?.name || 'Patient'}
+                        </h4>
+                        <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full capitalize ${
+                          req.urgency === 'emergency' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          {req.urgency || 'normal'}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs text-ink-soft">
+                        Needs <span className="font-bold text-blood-600">{req.units || 1} unit(s)</span> of <span className="font-bold text-blood-600">{req.bloodGroup}</span> blood
+                        {req.patient?.phone && ` · Contact: ${req.patient.phone}`}
+                      </p>
+                      {req.notes && <p className="mt-1 text-xs text-ink/70">Notes: {req.notes}</p>}
+                    </div>
 
-            {notificationsList.length === 0 && (
-              <div className="py-16 text-center text-ink-soft">No active notifications.</div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-semibold px-3 py-1 rounded-full capitalize mr-2 ${
+                        req.status === 'accepted' || req.status === 'fulfilled' ? 'bg-emerald-100 text-emerald-700' : req.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {req.status}
+                      </span>
+                      {req.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => handleUpdateStatus(req._id || req.id, 'accepted')}
+                            className="flex items-center gap-1 rounded-full bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                          >
+                            <Check size={14} /> Accept
+                          </button>
+                          <button
+                            onClick={() => handleUpdateStatus(req._id || req.id, 'rejected')}
+                            className="flex items-center gap-1 rounded-full bg-red-100 px-3.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-200"
+                          >
+                            <X size={14} /> Reject
+                          </button>
+                        </>
+                      )}
+                      {req.status === 'accepted' && (
+                        <button
+                          onClick={() => handleUpdateStatus(req._id || req.id, 'fulfilled')}
+                          className="flex items-center gap-1 rounded-full bg-blood-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blood-700"
+                        >
+                          Fulfill & Decrement Stock
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
+          </div>
+
+          {/* System Notifications Log */}
+          <div>
+            <h3 className="font-display text-lg font-medium text-ink mb-4">System Alerts Log</h3>
+            <div className="space-y-3">
+              {notificationsList.map((n) => (
+                <div key={n._id || n.id} className="flex items-start justify-between rounded-2xl border border-ink/8 bg-white p-5 shadow-sm">
+                  <div className="flex items-start gap-4">
+                    <span
+                      className={`mt-1.5 h-3 w-3 shrink-0 rounded-full ${
+                        n.tone === 'danger' || n.tone === 'caution' ? 'bg-amber-500' : n.tone === 'success' ? 'bg-emerald-500' : 'bg-blood-500'
+                      }`}
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-ink">{n.text}</p>
+                      <p className="mt-1 text-xs text-ink-soft">
+                        {n.createdAt ? new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-mist px-3 py-1 text-[11px] font-semibold text-ink-soft capitalize">
+                    {n.tone || 'info'}
+                  </span>
+                </div>
+              ))}
+
+              {notificationsList.length === 0 && !loadingNotifications && (
+                <div className="py-12 text-center text-ink-soft bg-white rounded-3xl border border-ink/8">
+                  No notifications recorded yet.
+                </div>
+              )}
+            </div>
           </div>
         </motion.div>
       )}

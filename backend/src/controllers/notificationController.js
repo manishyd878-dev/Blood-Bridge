@@ -5,8 +5,9 @@ import Notification from '../models/Notification.js';
 // @route   GET /api/notifications
 // @access  Private
 export const getNotifications = asyncHandler(async (req, res) => {
+  const hospitalId = req.user.hospital?._id || req.user.hospital;
   const or = [{ user: req.user._id }];
-  if (req.user.hospital) or.push({ hospital: req.user.hospital });
+  if (hospitalId) or.push({ hospital: hospitalId });
 
   const notifications = await Notification.find({ $or: or }).sort('-createdAt').limit(50);
 

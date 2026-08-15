@@ -33,15 +33,11 @@ export default function PatientDashboard() {
   const [profileMsg, setProfileMsg] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
-  // Settings
-  const [settingsMsg, setSettingsMsg] = useState('');
+  // Blood requests history from database
+  const [myRequests, setMyRequests] = useState([]);
+  const [requestsLoading, setRequestsLoading] = useState(true);
 
-  // Sample blood requests history
-  const [myRequests, setMyRequests] = useState([
-    { id: 'REQ-101', group: 'B+', hospital: 'Sanjeevani Hospital', units: 2, status: 'Approved', date: 'Today, 2:30 PM' },
-    { id: 'REQ-098', group: 'B+', hospital: 'City Care Hospital', units: 1, status: 'Completed', date: 'Yesterday' },
-  ]);
-
+  // Fetch live hospitals
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
@@ -60,6 +56,26 @@ export default function PatientDashboard() {
       isMounted = false;
     };
   }, [query, group]);
+
+  // Fetch real patient blood requests from backend database
+  useEffect(() => {
+    let isMounted = true;
+    setRequestsLoading(true);
+    api.getMyRequests()
+      .then((res) => {
+        if (isMounted && res.requests) {
+          setMyRequests(res.requests);
+        }
+      })
+      .catch((err) => console.error('Error fetching patient requests:', err))
+      .finally(() => {
+        if (isMounted) setRequestsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
@@ -93,7 +109,9 @@ export default function PatientDashboard() {
           )}
           <button className="relative flex h-11 w-11 items-center justify-center rounded-full border border-ink/10 bg-white">
             <Bell size={18} className="text-ink-soft" />
-            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-blood-600" />
+            {myRequests.length > 0 && (
+              <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-blood-600" />
+            )}
           </button>
         </div>
       }
@@ -130,9 +148,9 @@ export default function PatientDashboard() {
 
           <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
             {[
-              { label: 'Active requests', value: myRequests.length },
+              { label: 'Active requests', value: myRequests.filter(r => r.status === 'pending' || r.status === 'accepted').length },
               { label: 'Matches nearby', value: results.length },
-              { label: 'Saved hospitals', value: '5' },
+              { label: 'Total requests', value: myRequests.length },
               { label: 'Blood group', value: group },
             ].map((s) => (
               <div key={s.label} className="rounded-2xl border border-ink/8 bg-white p-4">
@@ -169,30 +187,48 @@ export default function PatientDashboard() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="font-display text-2xl font-medium text-ink">Blood Request History</h2>
-              <p className="text-xs text-ink-soft">Track your active blood requests and past fulfillment logs.</p>
+              <p className="text-xs text-ink-soft">Real-time status of blood requests submitted to hospitals.</p>
             </div>
           </div>
 
-          <div className="space-y-4">
-            {myRequests.map((req) => (
-              <div key={req.id} className="flex items-center justify-between rounded-3xl border border-ink/8 bg-white p-6 shadow-sm">
-                <div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-xs font-bold text-blood-700 bg-blood-50 px-2.5 py-1 rounded-full border border-blood-200">
-                      {req.id}
-                    </span>
-                    <h3 className="font-display text-base font-medium text-ink">{req.hospital}</h3>
+          {requestsLoading ? (
+            <div className="py-16 flex items-center justify-center gap-3 text-ink-soft">
+              <Loader2 size={20} className="animate-spin text-blood-600" />
+              <span>Loading your blood requests...</span>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {myRequests.map((req) => (
+                <div key={req._id || req.id} className="flex items-center justify-between rounded-3xl border border-ink/8 bg-white p-6 shadow-sm">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-xs font-bold text-blood-700 bg-blood-50 px-2.5 py-1 rounded-full border border-blood-200">
+                        REQ-{(req._id || req.id || '').slice(-4).toUpperCase()}
+                      </span>
+                      <h3 className="font-display text-base font-medium text-ink">
+                        {req.hospital?.name || 'Hospital Facility'}
+                      </h3>
+                    </div>
+                    <p className="mt-2 text-xs text-ink-soft">
+                      Requested <span className="font-bold text-ink">{req.units || 1} unit(s)</span> of <span className="font-bold text-blood-600">{req.bloodGroup}</span> blood · {new Date(req.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                    {req.notes && <p className="mt-1 text-xs text-ink/70">Notes: {req.notes}</p>}
                   </div>
-                  <p className="mt-2 text-xs text-ink-soft">Requested <span className="font-bold text-ink">{req.units} units</span> of <span className="font-bold text-blood-600">{req.group}</span> blood · {req.date}</p>
+                  <span className={`rounded-full px-3.5 py-1.5 text-xs font-semibold capitalize ${
+                    req.status === 'accepted' || req.status === 'fulfilled' ? 'bg-emerald-100 text-emerald-700' : req.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    {req.status}
+                  </span>
                 </div>
-                <span className={`rounded-full px-3.5 py-1.5 text-xs font-semibold ${
-                  req.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-mist text-ink'
-                }`}>
-                  {req.status}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+
+              {myRequests.length === 0 && (
+                <div className="py-16 text-center text-ink-soft bg-white rounded-3xl border border-ink/8">
+                  No blood requests submitted yet. Click "Find blood" or select any hospital to submit a request.
+                </div>
+              )}
+            </div>
+          )}
         </motion.div>
       )}
 

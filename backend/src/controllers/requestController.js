@@ -53,12 +53,13 @@ export const getMyRequests = asyncHandler(async (req, res) => {
 // @route   GET /api/requests/hospital
 // @access  Private (hospital)
 export const getHospitalRequests = asyncHandler(async (req, res) => {
-  if (!req.user.hospital) {
+  const hospitalId = req.user.hospital?._id || req.user.hospital;
+  if (!hospitalId) {
     res.status(400);
     throw new Error('This account is not linked to a hospital');
   }
 
-  const requests = await BloodRequest.find({ hospital: req.user.hospital })
+  const requests = await BloodRequest.find({ hospital: hospitalId })
     .populate('patient', 'name email phone bloodGroup')
     .sort('-createdAt');
 
