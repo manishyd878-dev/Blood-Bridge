@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Droplet, Lock, Mail } from 'lucide-react';
 import Button from '../components/ui/Button.jsx';
 import DropletField from '../components/ui/DropletField.jsx';
+import GoogleAuthButton from '../components/ui/GoogleAuthButton.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function Login() {
@@ -72,7 +73,25 @@ export default function Login() {
           ))}
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <div className="mt-6">
+          <GoogleAuthButton
+            role={role}
+            text="Continue with Google"
+            onSuccess={(res) => {
+              const userRole = res.user?.role || role;
+              navigate(userRole === 'hospital' ? '/hospital-dashboard' : '/dashboard');
+            }}
+            onError={(err) => setError(err)}
+          />
+        </div>
+
+        <div className="my-5 flex items-center gap-3">
+          <div className="h-px flex-1 bg-ink/10" />
+          <span className="text-xs uppercase tracking-wider text-ink-soft">or continue with email</span>
+          <div className="h-px flex-1 bg-ink/10" />
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="relative">
             <Mail size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-soft" />
             <input

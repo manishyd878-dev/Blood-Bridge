@@ -21,9 +21,25 @@ const userSchema = new Schema(
     },
     password: {
       type: String,
-      required: [true, 'Password is required'],
+      required: function () {
+        return !this.googleId;
+      },
       minlength: 6,
       select: false,
+    },
+    googleId: {
+      type: String,
+      default: null,
+      sparse: true,
+    },
+    avatar: {
+      type: String,
+      default: null,
+    },
+    authProvider: {
+      type: String,
+      enum: ['local', 'google'],
+      default: 'local',
     },
     role: {
       type: String,
@@ -50,13 +66,14 @@ const userSchema = new Schema(
 );
 
 userSchema.pre('save', async function hashPassword(next) {
-  if (!this.isModified('password')) return next();
+  if (!this.password || !this.isModified('password')) return next();
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
 userSchema.methods.comparePassword = function comparePassword(candidate) {
+  if (!this.password) return false;
   return bcrypt.compare(candidate, this.password);
 };
 
@@ -69,6 +86,8 @@ userSchema.methods.toSafeObject = function toSafeObject() {
     phone: this.phone,
     bloodGroup: this.bloodGroup,
     hospital: this.hospital,
+    avatar: this.avatar,
+    authProvider: this.authProvider,
     createdAt: this.createdAt,
   };
 };

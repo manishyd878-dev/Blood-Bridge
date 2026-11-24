@@ -52,6 +52,17 @@ export function AuthProvider({ children }) {
     return res;
   };
 
+  const loginWithGoogle = async (googlePayload) => {
+    const res = await api.googleAuth(googlePayload);
+    if (res.token && res.user) {
+      setToken(res.token);
+      setUser(res.user);
+      localStorage.setItem('bloodbridge_token', res.token);
+      localStorage.setItem('bloodbridge_user', JSON.stringify(res.user));
+    }
+    return res;
+  };
+
   const logout = () => {
     setToken(null);
     setUser(null);
@@ -60,7 +71,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, loginWithGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   );
